@@ -22,7 +22,7 @@ void AIRGBWBulb::init(void)
   m_color.red = 0;
   m_color.green = 0;
   m_color.blue = 0;
-  m_color.white = 255;
+  m_color.white = 255;  
 }
 
 void AIRGBWBulb::loop(void)
@@ -68,7 +68,7 @@ bool AIRGBWBulb::setState(bool p_state)
     analogWrite(RED_PIN, 0);
     analogWrite(GREEN_PIN, 0);
     analogWrite(BLUE_PIN, 0);
-    analogWrite(WHITE_PIN, 255); //** was 0 but for test blue BIL is used which is active low
+    analogWrite(WHITE_PIN, 0); 
   } 
 
   return true;

@@ -12,14 +12,9 @@ RGB and white LED with discovery
 #include <ArduinoOTA.h>
 #include <Streaming.h>
 
-//****************************************
-
-//
 #pragma once
 #ifndef _RGBW_
 #define _RGBW_
-
-//#include "config.h"
 
 #define COLOR_TEMP_HA_MIN_IN_MIRED 154 // Home Assistant minimum color temperature
 #define COLOR_TEMP_HA_MAX_IN_MIRED 500 // Home Assistant maximum color temperature
@@ -106,8 +101,7 @@ WiFiClient telnetClient;
 #endif
 
 #if defined(MQTT_HOME_ASSISTANT_SUPPORT)
-//**StaticJsonBuffer<256> staticJsonBuffer;
-DynamicJsonDocument root (1024); // ******* Called globally, use this instead of local ?????
+//DynamicJsonDocument root(1024); // ******* Called globally, use this instead of local ?????
 char jsonBuffer[512] = {0};
 #endif
 
@@ -162,7 +156,7 @@ void handleWiFiEvent(WiFiEvent_t event)
     DEBUG_PRINTLN(WiFi.localIP());
     break;
   case WIFI_EVENT_STAMODE_DISCONNECTED:
-    DEBUG_PRINTLN(F("\nERROR: WiFi losts connection"));
+    DEBUG_PRINTLN(F("\nERROR: WiFi lost connection"));
     /*
        TODO: Do something smarter than rebooting the device
     */
@@ -177,11 +171,11 @@ void handleWiFiEvent(WiFiEvent_t event)
 }
 
 /*
-   Function called to set up the connection to the WiFi AP
+   Function called to set up the connection to the WiFi AP with a static address
 */
 void setupWiFi()
 {
-   // IPAddress local_IP(192, 168, 1, 156); // Witty cloud 1
+  // IPAddress local_IP(192, 168, 1, 156); // Witty cloud 1
   IPAddress local_IP(192, 168, 1, 61); // Wemos D1 Mini - 9
   IPAddress gateway(192, 168, 1, 255);
   IPAddress subnet(255, 255, 0, 0);
@@ -223,7 +217,7 @@ void setupWiFi()
     if (millis() - wifiSetupStartTime > WIFI_CONNECTION_TIMEOUT)
     {
       Serial << "\nWifi connection took longer than " << (WIFI_CONNECTION_TIMEOUT) << '\n';
-      // goToSleepAndWakeUp();
+      
     }
   }
 
@@ -231,13 +225,9 @@ void setupWiFi()
   Serial << "\n Wifi connection duration (ms): " << (millis() - wifiSetupStartTime) << '\n';
 }
 
-///////////////////////////////////////////////////////////////////////////
-//   OTA
-///////////////////////////////////////////////////////////////////////////
+
+//**  Function called to setup OTA updates
 #if defined(OTA)
-/*
-   Function called to setup OTA updates
-*/
 void setupOTA()
 {
 #if defined(OTA_HOSTNAME)
@@ -284,9 +274,8 @@ void setupOTA()
   ArduinoOTA.begin();
 }
 
-/*
-   Function called to handle OTA updates
-*/
+
+ //** Function called to handle OTA updates
 void handleOTA()
 {
   ArduinoOTA.handle();
@@ -332,12 +321,11 @@ void handleMQTTMessage(char *p_topic, byte *p_payload, unsigned int p_length)
 
   if (String(MQTT_COMMAND_TOPIC).equals(p_topic))
   {
-    // DynamicJsonBuffer dynamicJsonBuffer;
     DynamicJsonDocument root(1024);
-    // JsonObject &root = dynamicJsonBuffer.parseObject(p_payload);
-    bool check = deserializeJson(root, p_payload, p_length);
 
-    if (!check)
+    DeserializationError err = deserializeJson(root, p_payload, p_length);
+
+    if (err)
     {
       DEBUG_PRINTLN(F("\nERROR: parseObject() failed"));
       return;
@@ -437,9 +425,8 @@ void handleMQTTMessage(char *p_topic, byte *p_payload, unsigned int p_length)
   }
 }
 
-/*
-  Function called to subscribe to a MQTT topic
-*/
+
+//**  Function called to subscribe to a MQTT topic
 void subscribeToMQTT(char *p_topic)
 {
   if (mqttClient.subscribe(p_topic))
@@ -454,9 +441,8 @@ void subscribeToMQTT(char *p_topic)
   }
 }
 
-/*
-  Function called to publish to a MQTT topic with the given payload
-*/
+
+//**  Function called to publish to a MQTT topic with the given payload
 void publishToMQTT(char *p_topic, char *p_payload)
 {
   if (mqttClient.publish(p_topic, p_payload, true))
@@ -476,9 +462,8 @@ void publishToMQTT(char *p_topic, char *p_payload)
   }
 }
 
-/*
-  Function called to connect/reconnect to the MQTT broker modded by Bob to use while instead of time limit
-*/
+
+//** Function called to connect/reconnect to the MQTT broker modded by Bob to use while instead of time limit
 void connectToMQTT()
 {
   //**if (!mqttClient.connected())
@@ -492,80 +477,30 @@ void connectToMQTT()
       DEBUG_PRINTLN(F("\nINFO: The client is successfully connected to the MQTT broker"));
       publishToMQTT(MQTT_STATUS_TOPIC, "alive");
 
-      /*
-      // ** Function - Configure a light as a device
-     void SendCfg_Light1()
-     {
-       DynamicJsonDocument configPayload(1024);
-       const string LIGHT_ID{"Step_1"};
-
-       configPayload["stat_t"] = "ha/light/step_1/state";
-       configPayload["cmd_t"] = "ha/light/step_1/cmd";
-       configPayload["expire_after"] = EXPIRE_AFTER;
-       configPayload["dev"]["name"] = "Step lights";
-       configPayload["dev"]["mdl"] = "IOTBear-4"; // [model]
-       configPayload["dev"]["mf"] = "GlebeTech";  // [manuafucturer]
-
-       configPayload["name"] = "Step light 1";
-       configPayload["uniq_id"] = "SL1"; // add a bit of MAC
-       configPayload["device_class"] = "light";
-       // configPayload["schema"] = "json";
-       // configPayload["brightness"] = "true";
-
-       JsonArray identifiers{configPayload["dev"].createNestedArray("ids")};
-       // identifiers.add(IPmsg);
-       // identifiers.add(sMAC);
-       identifiers.add("test_light");
-
-       const string configTPC{"homeassistant/light/" + LIGHT_ID  + "/config"};
-       // const string configTPC{"homeassistant/light/steplight/config"};
-       char configPL[1024]{}; // array
-       bool PubConfigOK{0};
-
-       serializeJson(configPayload, configPL);
-
-       if (mqttClient.publish(configTPC.c_str(), configPL, true))
-         PubConfigOK = 1;
-       const string publishMessage{
-           "\nconfig " + LIGHT_ID + (PubConfigOK ? " " : " NOT ") + "published\n"};
-       Serial.println(publishMessage.c_str());
-
-        Serial.println(configTPC.c_str());
-        Serial.println(configPL);
-        Serial << "\n\n";
-
-     } // End of config light 1
-     */
-
+      
 #if defined(MQTT_HOME_ASSISTANT_SUPPORT)
       // MQTT discovery for Home Assistant
-      //**JsonObject &root = staticJsonBuffer.createObject();
-      //DynamicJsonDocument root(1024);
+      DynamicJsonDocument root(1024);
+
+      root["platform"] = "mqtt"; // was mqtt_json
+      root["schema"] = "json";
       root["name"] = FRIENDLY_NAME;
-      root["platform"] = "mqtt_json";
       root["state_topic"] = MQTT_STATE_TOPIC;
       root["command_topic"] = MQTT_COMMAND_TOPIC;
-      root["dev"]["name"] = "Step lights 2";
-      root["dev"]["mdl"] = "Wemos Mini 9"; // [model]
-      root["dev"]["mf"] = "GlebeTech";     // [manuafucturer]
-      root["dev"]["ids"] = "abcd1234";     // [identifier]
+      // root["dev"]["name"] = "Disco lights 2";
+      // root["dev"]["mdl"] = "Wemos Mini 9"; // [model]
+      // root["dev"]["mf"] = "GlebeTech";     // [manuafucturer]
+      // root["dev"]["ids"] = "abcd1234";     // [identifier]
 
-      root["uniq_id"] = "SL1234";          // add a bit of MAC
+      root["uniq_id"] = "SL1234"; // add a bit of MAC
       root["device_class"] = "light";
-      root["schema"] = "json";
+
       root["brightness"] = true;
       root["rgb"] = true;
       root["white_value"] = true;
       root["color_temp"] = true;
       root["effect"] = true;
       root["effect_list"] = EFFECT_LIST;
-
-      // identifiers.add("test_light");
-      //-------------------------------------
-
-      //**root.printTo(jsonBuffer, sizeof(jsonBuffer));
-
-      // char configPL[1024]{}; // array
 
       serializeJson(root, jsonBuffer);
 
@@ -584,15 +519,10 @@ void connectToMQTT()
       DEBUG_PRINT(F("\nINFO: MQTT broker: "));
       DEBUG_PRINTLN(MQTT_SERVER);
     }
-    //**lastMQTTConnection = millis();
-    //**} // End of 'if'
   } // End of 'while'
 } // End of MQTT connect
 
-///////////////////////////////////////////////////////////////////////////
-//  CMD
-///////////////////////////////////////////////////////////////////////////
-
+//** Function - Handle a received command 
 void handleCMD()
 {
   switch (cmd)
@@ -602,15 +532,10 @@ void handleCMD()
   case CMD_STATE_CHANGED:
     cmd = CMD_NOT_DEFINED;
 
-    //**DynamicJsonBuffer dynamicJsonBuffer;
     DynamicJsonDocument root(1024);
-    //**JsonObject &root = dynamicJsonBuffer.createObject();
-
+   
     root["state"] = bulb.getState() ? MQTT_STATE_ON_PAYLOAD : MQTT_STATE_OFF_PAYLOAD;
     root["brightness"] = bulb.getBrightness();
-
-    //**********************
-    //**JsonObject &color = root.createNestedObject("color");
     root["color"]["r"] = bulb.getColor().red;
     root["color"]["g"] = bulb.getColor().green;
     root["color"]["b"] = bulb.getColor().blue;
@@ -618,17 +543,13 @@ void handleCMD()
     root["color_temp"] = bulb.getColorTemperature();
 
     serializeJson(root, jsonBuffer);
-
-    //**root.printTo(jsonBuffer, sizeof(jsonBuffer));
+   
     publishToMQTT(MQTT_STATE_TOPIC, jsonBuffer);
     break;
   }
 }
 
-///////////////////////////////////////////////////////////////////////////
-//  SETUP() AND LOOP()
-///////////////////////////////////////////////////////////////////////////
-
+// ** Function - Set up
 void setup()
 {
 #if defined(DEBUG_SERIAL)
@@ -675,6 +596,9 @@ void setup()
   cmd = CMD_STATE_CHANGED;
 }
 
+
+//
+// ** Function - Main loop
 void loop()
 {
 #if defined(DEBUG_TELNET)
